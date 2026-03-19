@@ -8,7 +8,7 @@ from telegram.ext import Application
 import config
 import db
 from bot import setup_handlers
-from services import health_check_job, rotation_job
+from services import fmt_duration, health_check_job, notify, rotation_job
 
 logging.basicConfig(
     level=logging.INFO,
@@ -35,12 +35,19 @@ async def post_init(app: Application) -> None:
     )
 
     await app.bot.set_my_commands([
-        BotCommand("set_domains", "Задать список доменов"),
-        BotCommand("add_domains", "Добавить домены"),
-        BotCommand("list_domains", "Список доменов"),
-        BotCommand("change_domain_now", "Заменить домен сейчас"),
-        BotCommand("set_change_interval", "Интервал смены"),
+        BotCommand("set_domains", "Set domain list"),
+        BotCommand("add_domains", "Add domains"),
+        BotCommand("list_domains", "Current domain list"),
+        BotCommand("change_domain_now", "Rotate domain now"),
+        BotCommand("set_change_interval", "Set rotation interval"),
     ])
+
+    await notify(
+        app.bot,
+        f"🛡 <b>Domain Watchguard started</b>\n"
+        f"Check interval: {fmt_duration(check_interval)}\n"
+        f"Rotation interval: {fmt_duration(change_interval)}",
+    )
 
     log.info("Started — check every %ds, rotate every %ds", check_interval, change_interval)
 

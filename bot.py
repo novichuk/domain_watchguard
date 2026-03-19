@@ -46,11 +46,11 @@ def normalize_domain(raw: str) -> str:
 async def cmd_start(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "🛡 <b>Domain Watchguard</b>\n\n"
-        "/set_domains — задать список доменов\n"
-        "/add_domains — добавить домены\n"
-        "/list_domains — текущий список\n"
-        "/change_domain_now — заменить домен\n"
-        "/set_change_interval — интервал ротации",
+        "/set_domains — set domain list\n"
+        "/add_domains — add domains\n"
+        "/list_domains — current domain list\n"
+        "/change_domain_now — rotate domain now\n"
+        "/set_change_interval — set rotation interval",
         parse_mode="HTML",
     )
 
@@ -59,19 +59,19 @@ async def cmd_set_domains(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> No
     parts = update.message.text.split("\n", 1)
     if len(parts) < 2 or not parts[1].strip():
         await update.message.reply_text(
-            "Укажите домены, каждый с новой строки:\n\n"
+            "Provide domains, each on a new line:\n\n"
             "/set_domains\nexample1.com\nexample2.com",
         )
         return
 
     domains = [normalize_domain(d) for d in parts[1].strip().split("\n") if d.strip()]
     if not domains:
-        await update.message.reply_text("Не найдено доменов в сообщении.")
+        await update.message.reply_text("No domains found in the message.")
         return
 
     count = await db.set_domains(domains)
     await update.message.reply_text(
-        f"✅ Задано {count} доменов.\nПервая проверка через несколько секунд.",
+        f"✅ {count} domains set.\nFirst check in a few seconds.",
     )
 
 
@@ -79,53 +79,53 @@ async def cmd_add_domains(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> No
     parts = update.message.text.split("\n", 1)
     if len(parts) < 2 or not parts[1].strip():
         await update.message.reply_text(
-            "Укажите домены:\n\n/add_domains\nexample.com",
+            "Provide domains:\n\n/add_domains\nexample.com",
         )
         return
 
     domains = [normalize_domain(d) for d in parts[1].strip().split("\n") if d.strip()]
     added = await db.add_domains(domains)
-    await update.message.reply_text(f"✅ Добавлено: {added}")
+    await update.message.reply_text(f"✅ Added: {added}")
 
 
 async def cmd_list_domains(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
     domains = await db.get_all_domains()
     if not domains:
-        await update.message.reply_text("📋 Список доменов пуст.")
+        await update.message.reply_text("📋 Domain list is empty.")
         return
 
     cooldown = int(await db.get_config("cooldown_checks", str(config.COOLDOWN_CHECKS)))
     change_sec = int(await db.get_config("change_interval", str(config.CHANGE_INTERVAL)))
 
     lines: list[str] = [
-        f"📋 <b>Домены</b> (ротация каждые {fmt_duration(change_sec)}):\n",
+        f"📋 <b>Domains</b> (rotation every {fmt_duration(change_sec)}):\n",
     ]
 
     for i, d in enumerate(domains, 1):
         if d["is_current"]:
-            icon, tag = "🔵", " [В РАБОТЕ]"
+            icon, tag = "🔵", " [ACTIVE]"
         elif d["is_healthy"] is None:
-            icon, tag = "⚪", " [не проверен]"
+            icon, tag = "⚪", " [unchecked]"
         elif not d["is_healthy"]:
-            icon, tag = "🔴", " [НЕДОСТУПЕН]"
+            icon, tag = "🔴", " [DOWN]"
         elif d["total_downs"] > 0 and d["consecutive_ok"] < cooldown:
-            icon, tag = "🟡", f" [кулдаун {d['consecutive_ok']}/{cooldown}]"
+            icon, tag = "🟡", f" [cooldown {d['consecutive_ok']}/{cooldown}]"
         else:
             icon, tag = "🟢", ""
 
         dt = fmt_duration(d["total_downtime"])
         lines.append(
             f"{i}. {icon} <code>{d['domain']}</code>{tag}\n"
-            f"    ↓{d['total_downs']} ↑{d['total_ups']} | даунтайм: {dt}",
+            f"    ↓{d['total_downs']} ↑{d['total_ups']} | downtime: {dt}",
         )
 
     await update.message.reply_text("\n".join(lines), parse_mode="HTML")
 
 
 async def cmd_change_domain_now(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    ok = await rotate_domain(ctx.bot, reason="ручная замена")
+    ok = await rotate_domain(ctx.bot, reason="manual rotation")
     if not ok:
-        await update.message.reply_text("❌ Нет доступных доменов для замены.")
+        await update.message.reply_text("❌ No available domains for rotation.")
 
 
 async def cmd_set_change_interval(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -133,22 +133,22 @@ async def cmd_set_change_interval(update: Update, ctx: ContextTypes.DEFAULT_TYPE
     if not raw:
         current = await db.get_config("change_interval", str(config.CHANGE_INTERVAL))
         await update.message.reply_text(
-            f"Текущий интервал: {fmt_duration(int(current))}\n"
-            f"Использование: /set_change_interval 1h",
+            f"Current interval: {fmt_duration(int(current))}\n"
+            f"Usage: /set_change_interval 1h",
         )
         return
 
     seconds = parse_interval(raw)
     if not seconds or seconds < 60:
         await update.message.reply_text(
-            "❌ Неверный формат. Примеры: 1h, 30m, 2h, 30 min",
+            "❌ Invalid format. Examples: 1h, 30m, 2h, 30 min",
         )
         return
 
     await db.set_config("change_interval", str(seconds))
     await reschedule_rotation(ctx.application, seconds)
     await update.message.reply_text(
-        f"✅ Интервал смены доменов: {fmt_duration(seconds)}",
+        f"✅ Rotation interval: {fmt_duration(seconds)}",
     )
 
 

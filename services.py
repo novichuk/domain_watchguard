@@ -18,14 +18,14 @@ log = logging.getLogger(__name__)
 
 def fmt_duration(seconds: int) -> str:
     if not seconds or seconds <= 0:
-        return "0 сек"
+        return "0s"
     if seconds < 60:
-        return f"{seconds} сек"
+        return f"{seconds}s"
     if seconds < 3600:
-        return f"{seconds // 60} мин {seconds % 60} сек"
+        return f"{seconds // 60}m {seconds % 60}s"
     h, rem = divmod(seconds, 3600)
     m = rem // 60
-    return f"{h} ч {m} мин"
+    return f"{h}h {m}m"
 
 
 async def notify(bot: Bot, text: str) -> None:
@@ -48,9 +48,9 @@ async def rotate_domain(bot: Bot, reason: str = "") -> bool:
     if next_d is None:
         await notify(
             bot,
-            "🚨 <b>КРИТИЧНО: НЕТ ДОСТУПНЫХ ДОМЕНОВ</b>\n"
-            "Все домены недоступны или на кулдауне!\n"
-            "Требуется ручное вмешательство.",
+            "🚨 <b>CRITICAL: NO AVAILABLE DOMAINS</b>\n"
+            "All domains are down or on cooldown!\n"
+            "Manual intervention required.",
         )
         return False
 
@@ -65,7 +65,7 @@ async def rotate_domain(bot: Bot, reason: str = "") -> bool:
         )
     except Exception as exc:
         log.error("Airtable update failed: %s", exc)
-        await notify(bot, f"❌ <b>Ошибка обновления Airtable:</b>\n<code>{exc}</code>")
+        await notify(bot, f"❌ <b>Airtable update error:</b>\n<code>{exc}</code>")
         return False
 
     await db.set_current_domain(next_d["id"])
@@ -77,11 +77,11 @@ async def rotate_domain(bot: Bot, reason: str = "") -> bool:
     old_name = current["domain"] if current else "—"
     await notify(
         bot,
-        f"🔄 <b>ДОМЕН ЗАМЕНЁН</b>\n"
-        f"Старый: <code>{old_name}</code>\n"
-        f"Новый: <code>{next_d['domain']}</code>\n"
-        f"Причина: {reason}\n"
-        f"Airtable: обновлено ✅ ({count} зап.)",
+        f"🔄 <b>DOMAIN ROTATED</b>\n"
+        f"Old: <code>{old_name}</code>\n"
+        f"New: <code>{next_d['domain']}</code>\n"
+        f"Reason: {reason}\n"
+        f"Airtable: updated ✅ ({count} rec.)",
     )
     return True
 
@@ -109,10 +109,10 @@ async def run_health_check(bot: Bot) -> None:
                 await db.add_event(d["id"], "up", f"downtime={downtime}s")
                 await notify(
                     bot,
-                    f"🟢 <b>ДОМЕН ВОССТАНОВЛЕН</b>\n"
-                    f"Домен: <code>{d['domain']}</code>\n"
-                    f"Даунтайм: {fmt_duration(downtime)}\n"
-                    f"Статус: кулдаун (1/{cooldown} проверок до готовности)",
+                    f"🟢 <b>DOMAIN RECOVERED</b>\n"
+                    f"Domain: <code>{d['domain']}</code>\n"
+                    f"Downtime: {fmt_duration(downtime)}\n"
+                    f"Status: cooldown (1/{cooldown} checks before ready)",
                 )
             else:
                 await db.increment_ok(d["id"])
@@ -122,20 +122,19 @@ async def run_health_check(bot: Bot) -> None:
                 await db.add_event(d["id"], "down", "")
                 await notify(
                     bot,
-                    f"🔴 <b>ДОМЕН УПАЛ</b>\n"
-                    f"Домен: <code>{d['domain']}</code>\n"
-                    f"Попытки: {config.CHECK_RETRIES}/{config.CHECK_RETRIES} неудачно",
+                    f"🔴 <b>DOMAIN DOWN</b>\n"
+                    f"Domain: <code>{d['domain']}</code>\n"
+                    f"Retries: {config.CHECK_RETRIES}/{config.CHECK_RETRIES} failed",
                 )
 
     # If current domain is down — rotate immediately
     current = await db.get_current_domain()
     if current and not current["is_healthy"]:
-        await rotate_domain(bot, reason="падение текущего домена")
+        await rotate_domain(bot, reason="active domain went down")
     elif current is None:
-        # No current domain set yet — try to assign one
         first = await db.get_next_available(cooldown)
         if first:
-            await rotate_domain(bot, reason="первоначальная установка")
+            await rotate_domain(bot, reason="initial assignment")
 
 
 # ── Job callbacks (for python-telegram-bot JobQueue) ──────────────────────────
@@ -149,7 +148,7 @@ async def health_check_job(context: ContextTypes.DEFAULT_TYPE) -> None:
 
 async def rotation_job(context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
-        await rotate_domain(context.bot, reason="плановая ротация")
+        await rotate_domain(context.bot, reason="scheduled rotation")
     except Exception:
         log.exception("Rotation job error")
 
