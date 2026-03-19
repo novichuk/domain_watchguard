@@ -1,10 +1,49 @@
+# 🔐 Secrets
 .env
+.env.*
+*.env
+
+# 🐍 Python
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
+*.pyd
+*.so
+
+# Virtualenv
 venv/
+.env/
 .venv/
-list.txt
-logs/
-*.log
+ENV/
+
+# 🧪 Testing / coverage
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# 🧠 IDE / OS
+.vscode/
+.idea/
 .DS_Store
+Thumbs.db
+
+# 🐳 Docker
+docker-compose.override.yml
+
+# 📦 Build / dist
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# 🗄 Logs
+*.log
+
+# 🗃 Database
+*.sqlite3
+*.db
+
+# 🧾 Misc
+*.swp
+*.swo
