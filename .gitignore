@@ -47,3 +47,5 @@ dist/
 # 🧾 Misc
 *.swp
 *.swo
+*~
+.cursor/
