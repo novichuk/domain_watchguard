@@ -33,12 +33,15 @@ def parse_interval(text: str) -> int | None:
     return val
 
 
-def normalize_domain(raw: str) -> str:
+def normalize_domain(raw: str) -> str | None:
     d = raw.strip().lower()
     for prefix in ("https://", "http://"):
         if d.startswith(prefix):
             d = d[len(prefix):]
-    return d.rstrip("/")
+    d = d.rstrip("/")
+    if "." not in d or " " in d:
+        return None
+    return d
 
 
 # ── Handlers ──────────────────────────────────────────────────────────────────
@@ -64,15 +67,18 @@ async def cmd_set_domains(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> No
         )
         return
 
-    domains = [normalize_domain(d) for d in parts[1].strip().split("\n") if d.strip()]
+    raw = [d.strip() for d in parts[1].strip().split("\n") if d.strip()]
+    domains = [d for d in (normalize_domain(r) for r in raw) if d]
+    skipped = len(raw) - len(domains)
     if not domains:
-        await update.message.reply_text("No domains found in the message.")
+        await update.message.reply_text("No valid domains found in the message.")
         return
 
     count = await db.set_domains(domains)
-    await update.message.reply_text(
-        f"✅ {count} domains set.\nFirst check in a few seconds.",
-    )
+    msg = f"✅ {count} domains set.\nFirst check in a few seconds."
+    if skipped:
+        msg += f"\n⚠️ Skipped {skipped} invalid line(s)."
+    await update.message.reply_text(msg)
 
 
 async def cmd_add_domains(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -83,7 +89,7 @@ async def cmd_add_domains(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> No
         )
         return
 
-    domains = [normalize_domain(d) for d in parts[1].strip().split("\n") if d.strip()]
+    domains = [d for d in (normalize_domain(r) for r in parts[1].strip().split("\n") if r.strip()) if d]
     added = await db.add_domains(domains)
     await update.message.reply_text(f"✅ Added: {added}")
 
@@ -113,10 +119,18 @@ async def cmd_list_domains(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> N
         else:
             icon, tag = "🟢", ""
 
-        dt = fmt_duration(d["total_downtime"])
+        downs_30d = await db.get_downs_30d(d["id"])
+        dt_sec = d["total_downtime"]
+        dt_str = fmt_duration(dt_sec)
+
+        added = d["added_at"]
+        from datetime import datetime, timezone
+        total_sec = int((datetime.now(timezone.utc) - added).total_seconds())
+        pct = f"{dt_sec / total_sec * 100:.1f}%" if total_sec > 0 else "0%"
+
         lines.append(
             f"{i}. {icon} <code>{d['domain']}</code>{tag}\n"
-            f"    ↓{d['total_downs']} ↑{d['total_ups']} | downtime: {dt}",
+            f"    ↓{downs_30d} (30d) | downtime: {dt_str} ({pct})",
         )
 
     await update.message.reply_text("\n".join(lines), parse_mode="HTML")

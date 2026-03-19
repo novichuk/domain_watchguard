@@ -49,24 +49,14 @@ async def rotate_domain(bot: Bot, reason: str = "") -> bool:
         await notify(
             bot,
             "🚨 <b>CRITICAL: NO AVAILABLE DOMAINS</b>\n"
-            "All domains are down or on cooldown!\n"
+            "All domains are down!\n"
             "Manual intervention required.",
         )
         return False
 
-    try:
-        count = await airtable_update(
-            config.AIRTABLE_API_KEY,
-            config.AIRTABLE_BASE_ID,
-            config.AIRTABLE_TABLE_ID,
-            config.AIRTABLE_VIEW_NAME,
-            config.AIRTABLE_FIELD_NAME,
-            next_d["domain"],
-        )
-    except Exception as exc:
-        log.error("Airtable update failed: %s", exc)
-        await notify(bot, f"❌ <b>Airtable update error:</b>\n<code>{exc}</code>")
-        return False
+    on_cooldown = (
+        next_d["total_downs"] > 0 and next_d["consecutive_ok"] < cooldown
+    )
 
     await db.set_current_domain(next_d["id"])
 
@@ -75,15 +65,41 @@ async def rotate_domain(bot: Bot, reason: str = "") -> bool:
     await db.add_event(next_d["id"], "rotation_in", reason)
 
     old_name = current["domain"] if current else "—"
+    warn = "\n⚠️ Domain is still on cooldown (used as fallback)" if on_cooldown else ""
     await notify(
         bot,
         f"🔄 <b>DOMAIN ROTATED</b>\n"
         f"Old: <code>{old_name}</code>\n"
         f"New: <code>{next_d['domain']}</code>\n"
         f"Reason: {reason}\n"
-        f"Airtable: updated ✅ ({count} rec.)",
+        f"Airtable: updating in background...{warn}",
     )
+
+    asyncio.create_task(_airtable_update_bg(bot, next_d["domain"]))
     return True
+
+
+async def _airtable_update_bg(bot: Bot, domain: str) -> None:
+    import time
+    start = time.monotonic()
+    try:
+        count = await airtable_update(
+            config.AIRTABLE_API_KEY,
+            config.AIRTABLE_BASE_ID,
+            config.AIRTABLE_TABLE_ID,
+            config.AIRTABLE_VIEW_NAME,
+            config.AIRTABLE_FIELD_NAME,
+            domain,
+        )
+        elapsed = int(time.monotonic() - start)
+        await notify(
+            bot,
+            f"✅ Airtable updated: <code>{domain}</code>\n"
+            f"Records: {count} | Time: {elapsed}s",
+        )
+    except Exception as exc:
+        log.error("Airtable background update failed: %s", exc)
+        await notify(bot, f"❌ <b>Airtable update failed:</b>\n<code>{exc}</code>")
 
 
 # ── Health check cycle ────────────────────────────────────────────────────────
@@ -127,14 +143,13 @@ async def run_health_check(bot: Bot) -> None:
                     f"Retries: {config.CHECK_RETRIES}/{config.CHECK_RETRIES} failed",
                 )
 
-    # If current domain is down — rotate immediately
     current = await db.get_current_domain()
     if current and not current["is_healthy"]:
-        await rotate_domain(bot, reason="active domain went down")
+        asyncio.create_task(rotate_domain(bot, reason="active domain went down"))
     elif current is None:
         first = await db.get_next_available(cooldown)
         if first:
-            await rotate_domain(bot, reason="initial assignment")
+            asyncio.create_task(rotate_domain(bot, reason="initial assignment"))
 
 
 # ── Job callbacks (for python-telegram-bot JobQueue) ──────────────────────────
