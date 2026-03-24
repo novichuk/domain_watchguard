@@ -99,7 +99,7 @@ async def _airtable_update_bg(bot: Bot, domain: str) -> None:
         elapsed = int(time.monotonic() - start)
         await notify(
             bot,
-            f"✅ Airtable updated: <code>{domain}</code>\n"
+            f"✅ Airtable updated with domain: <code>{domain}</code>\n"
             f"Records: {count} | Time: {elapsed}s",
         )
     except Exception as exc:
@@ -130,7 +130,7 @@ async def run_health_check(bot: Bot) -> None:
                 await db.add_event(d["id"], "up", f"downtime={downtime}s")
                 await notify(
                     bot,
-                    f"🟢 <b>DOMAIN RECOVERED</b>\n"
+                    f"🟢 <b>DOMAIN IS UP</b>\n"
                     f"Domain: <code>{d['domain']}</code>\n"
                     f"Downtime: {fmt_duration(downtime)}\n"
                     f"Status: cooldown (1/{cooldown} checks before ready)",
