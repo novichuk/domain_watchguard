@@ -64,6 +64,10 @@ async def rotate_domain(bot: Bot, reason: str = "") -> bool:
         await db.add_event(current_id, "rotation_out", f"→ {next_d['domain']}, {reason}")
     await db.add_event(next_d["id"], "rotation_in", reason)
 
+    all_domains = await db.get_all_domains()
+    total = len(all_domains)
+    healthy = sum(1 for d in all_domains if d["is_healthy"])
+
     old_name = current["domain"] if current else "—"
     warn = "\n⚠️ Domain is still on cooldown (used as fallback)" if on_cooldown else ""
     await notify(
@@ -72,6 +76,7 @@ async def rotate_domain(bot: Bot, reason: str = "") -> bool:
         f"Old: <code>{old_name}</code>\n"
         f"New: <code>{next_d['domain']}</code>\n"
         f"Reason: {reason}\n"
+        f"Domains in rotation: {healthy}/{total} healthy\n"
         f"Airtable: updating in background...{warn}",
     )
 
