@@ -206,3 +206,83 @@ async def get_downs_30d(domain_id: int) -> int:
         domain_id,
     )
     return row or 0
+
+
+# ── Proxies ──────────────────────────────────────────────────────────────────
+
+async def upsert_proxy(
+    airtable_id: str, proxy_url: str, ip: str, port: int, proxy_type: str,
+) -> None:
+    await _pool.execute(
+        """INSERT INTO proxies (airtable_id, proxy_url, ip, port, proxy_type)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (airtable_id) DO UPDATE
+             SET proxy_url = $2, ip = $3, port = $4, proxy_type = $5""",
+        airtable_id, proxy_url, ip, port, proxy_type,
+    )
+
+
+async def get_proxy(airtable_id: str) -> asyncpg.Record | None:
+    return await _pool.fetchrow(
+        "SELECT * FROM proxies WHERE airtable_id = $1", airtable_id,
+    )
+
+
+async def get_all_proxies() -> list[asyncpg.Record]:
+    return await _pool.fetch("SELECT * FROM proxies ORDER BY created_at")
+
+
+async def update_proxy_health(airtable_id: str, healthy: bool) -> None:
+    if healthy:
+        await _pool.execute(
+            """UPDATE proxies SET
+                 is_healthy = true,
+                 consecutive_fails = 0,
+                 last_checked_at = NOW()
+               WHERE airtable_id = $1""",
+            airtable_id,
+        )
+    else:
+        await _pool.execute(
+            """UPDATE proxies SET
+                 is_healthy = false,
+                 consecutive_fails = consecutive_fails + 1,
+                 last_checked_at = NOW(),
+                 last_down_at = COALESCE(last_down_at, NOW())
+               WHERE airtable_id = $1""",
+            airtable_id,
+        )
+
+
+async def set_expiry_alert_sent(airtable_id: str) -> None:
+    await _pool.execute(
+        "UPDATE proxies SET last_expiry_alert_at = NOW() WHERE airtable_id = $1",
+        airtable_id,
+    )
+
+
+async def clear_proxy_down(airtable_id: str) -> None:
+    await _pool.execute(
+        "UPDATE proxies SET last_down_at = NULL WHERE airtable_id = $1",
+        airtable_id,
+    )
+
+
+async def add_proxy_event(
+    airtable_id: str, event_type: str, details: str = "",
+) -> None:
+    await _pool.execute(
+        "INSERT INTO proxy_events (proxy_airtable_id, event_type, details) VALUES ($1, $2, $3)",
+        airtable_id, event_type, details,
+    )
+
+
+async def cleanup_stale_proxies(active_ids: set[str]) -> int:
+    """Remove proxies no longer present in Airtable. Returns count deleted."""
+    all_rows = await _pool.fetch("SELECT airtable_id FROM proxies")
+    stale = [r["airtable_id"] for r in all_rows if r["airtable_id"] not in active_ids]
+    if stale:
+        await _pool.execute(
+            "DELETE FROM proxies WHERE airtable_id = ANY($1::text[])", stale,
+        )
+    return len(stale)

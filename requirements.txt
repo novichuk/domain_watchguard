@@ -1,5 +1,6 @@
 python-telegram-bot[job-queue]
 asyncpg
 aiohttp
+aiohttp-socks
 pyairtable
 python-dotenv

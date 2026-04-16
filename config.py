@@ -36,3 +36,12 @@ CHANGE_INTERVAL: int = int(os.environ.get("CHANGE_INTERVAL_SECONDS", "3600"))
 COOLDOWN_CHECKS: int = int(os.environ.get("COOLDOWN_CHECKS", "5"))
 CHECK_TIMEOUT: int = int(os.environ.get("CHECK_TIMEOUT_SECONDS", "10"))
 CHECK_RETRIES: int = int(os.environ.get("CHECK_RETRIES", "3"))
+
+# Proxy checker
+PROXY_AIRTABLE_BASE_ID: str = os.environ.get("PROXY_AIRTABLE_BASE_ID", "app0kK7fZvuE1lGvH")
+PROXY_AIRTABLE_TABLE_ID: str = os.environ.get("PROXY_AIRTABLE_TABLE_ID", "tblCkvfN8PsSMKD46")
+PROXY_AIRTABLE_VIEW: str = os.environ.get("PROXY_AIRTABLE_VIEW", "viwItY0XqTwjbs8JQ")
+PROXY_CHECK_INTERVAL: int = int(os.environ.get("PROXY_CHECK_INTERVAL_SECONDS", "600"))
+PROXY_CHECK_TIMEOUT: int = int(os.environ.get("PROXY_CHECK_TIMEOUT_SECONDS", "15"))
+PROXY_CHECK_RETRIES: int = int(os.environ.get("PROXY_CHECK_RETRIES", "3"))
+PROXY_EXPIRY_WARN_DAYS: int = int(os.environ.get("PROXY_EXPIRY_WARN_DAYS", "3"))

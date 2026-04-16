@@ -9,6 +9,7 @@ from telegram.ext import CommandHandler, ContextTypes, filters
 import config
 import db
 from services import fmt_duration, rotate_domain, reschedule_rotation
+from proxy_service import format_proxy_status, reschedule_proxy_check
 
 log = logging.getLogger(__name__)
 
@@ -49,11 +50,15 @@ def normalize_domain(raw: str) -> str | None:
 async def cmd_start(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(
         "🛡 <b>Domain Watchguard</b>\n\n"
+        "<b>Domains:</b>\n"
         "/set_domains — set domain list\n"
         "/add_domains — add domains\n"
         "/list_domains — current domain list\n"
         "/change_domain_now — rotate domain now\n"
-        "/set_change_interval — set rotation interval",
+        "/set_change_interval — set rotation interval\n\n"
+        "<b>Proxies:</b>\n"
+        "/list_proxies — proxy status\n"
+        "/set_proxy_check_interval — set proxy check interval",
         parse_mode="HTML",
     )
 
@@ -166,6 +171,41 @@ async def cmd_set_change_interval(update: Update, ctx: ContextTypes.DEFAULT_TYPE
     )
 
 
+# ── Proxy commands ────────────────────────────────────────────────────────────
+
+async def cmd_list_proxies(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    msg = await format_proxy_status()
+    await update.message.reply_text(msg, parse_mode="HTML")
+
+
+async def cmd_set_proxy_check_interval(
+    update: Update, ctx: ContextTypes.DEFAULT_TYPE,
+) -> None:
+    raw = " ".join(ctx.args) if ctx.args else ""
+    if not raw:
+        current = await db.get_config(
+            "proxy_check_interval", str(config.PROXY_CHECK_INTERVAL),
+        )
+        await update.message.reply_text(
+            f"Current proxy check interval: {fmt_duration(int(current))}\n"
+            f"Usage: /set_proxy_check_interval 10m",
+        )
+        return
+
+    seconds = parse_interval(raw)
+    if not seconds or seconds < 60:
+        await update.message.reply_text(
+            "❌ Invalid format. Examples: 10m, 30m, 1h",
+        )
+        return
+
+    await db.set_config("proxy_check_interval", str(seconds))
+    await reschedule_proxy_check(ctx.application, seconds)
+    await update.message.reply_text(
+        f"✅ Proxy check interval: {fmt_duration(seconds)}",
+    )
+
+
 # ── Registration ──────────────────────────────────────────────────────────────
 
 def setup_handlers(app) -> None:
@@ -177,6 +217,8 @@ def setup_handlers(app) -> None:
         ("list_domains", cmd_list_domains),
         ("change_domain_now", cmd_change_domain_now),
         ("set_change_interval", cmd_set_change_interval),
+        ("list_proxies", cmd_list_proxies),
+        ("set_proxy_check_interval", cmd_set_proxy_check_interval),
     ]
     for name, callback in h:
         app.add_handler(CommandHandler(name, callback, filters=_CHAT))
