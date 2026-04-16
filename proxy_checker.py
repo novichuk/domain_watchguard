@@ -8,7 +8,7 @@ from aiohttp_socks import ProxyConnector
 
 log = logging.getLogger(__name__)
 
-_TEST_URL = "http://httpbin.org/ip"
+_TEST_URL = "http://icanhazip.com"
 
 
 async def check_proxy(

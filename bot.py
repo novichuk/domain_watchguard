@@ -180,8 +180,9 @@ async def cmd_proxy_list(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> Non
 
 
 async def cmd_proxy_check_now(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text("🔄 Running proxy check…")
-    await run_proxy_check(ctx.bot)
+    await update.message.reply_text("🔄 Running proxy check in background…")
+    import asyncio
+    asyncio.create_task(run_proxy_check(ctx.bot))
 
 
 async def cmd_proxy_set_interval(
