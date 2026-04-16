@@ -48,8 +48,9 @@ async def post_init(app: Application) -> None:
         BotCommand("list_domains", "Current domain list"),
         BotCommand("change_domain_now", "Rotate domain now"),
         BotCommand("set_change_interval", "Set rotation interval"),
-        BotCommand("list_proxies", "Proxy status"),
-        BotCommand("set_proxy_check_interval", "Set proxy check interval"),
+        BotCommand("proxy_list", "Proxy status"),
+        BotCommand("proxy_check_now", "Check all proxies now"),
+        BotCommand("proxy_set_interval", "Set proxy check interval"),
     ])
 
     await notify(

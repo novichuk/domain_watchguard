@@ -9,7 +9,7 @@ from telegram.ext import CommandHandler, ContextTypes, filters
 import config
 import db
 from services import fmt_duration, rotate_domain, reschedule_rotation
-from proxy_service import format_proxy_status, reschedule_proxy_check
+from proxy_service import format_proxy_status, reschedule_proxy_check, run_proxy_check
 
 log = logging.getLogger(__name__)
 
@@ -57,8 +57,9 @@ async def cmd_start(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
         "/change_domain_now — rotate domain now\n"
         "/set_change_interval — set rotation interval\n\n"
         "<b>Proxies:</b>\n"
-        "/list_proxies — proxy status\n"
-        "/set_proxy_check_interval — set proxy check interval",
+        "/proxy_list — proxy status\n"
+        "/proxy_check_now — check all proxies now\n"
+        "/proxy_set_interval — set proxy check interval",
         parse_mode="HTML",
     )
 
@@ -173,12 +174,17 @@ async def cmd_set_change_interval(update: Update, ctx: ContextTypes.DEFAULT_TYPE
 
 # ── Proxy commands ────────────────────────────────────────────────────────────
 
-async def cmd_list_proxies(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
+async def cmd_proxy_list(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
     msg = await format_proxy_status()
     await update.message.reply_text(msg, parse_mode="HTML")
 
 
-async def cmd_set_proxy_check_interval(
+async def cmd_proxy_check_now(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text("🔄 Running proxy check…")
+    await run_proxy_check(ctx.bot)
+
+
+async def cmd_proxy_set_interval(
     update: Update, ctx: ContextTypes.DEFAULT_TYPE,
 ) -> None:
     raw = " ".join(ctx.args) if ctx.args else ""
@@ -188,7 +194,7 @@ async def cmd_set_proxy_check_interval(
         )
         await update.message.reply_text(
             f"Current proxy check interval: {fmt_duration(int(current))}\n"
-            f"Usage: /set_proxy_check_interval 10m",
+            f"Usage: /proxy_set_interval 10m",
         )
         return
 
@@ -217,8 +223,9 @@ def setup_handlers(app) -> None:
         ("list_domains", cmd_list_domains),
         ("change_domain_now", cmd_change_domain_now),
         ("set_change_interval", cmd_set_change_interval),
-        ("list_proxies", cmd_list_proxies),
-        ("set_proxy_check_interval", cmd_set_proxy_check_interval),
+        ("proxy_list", cmd_proxy_list),
+        ("proxy_check_now", cmd_proxy_check_now),
+        ("proxy_set_interval", cmd_proxy_set_interval),
     ]
     for name, callback in h:
         app.add_handler(CommandHandler(name, callback, filters=_CHAT))

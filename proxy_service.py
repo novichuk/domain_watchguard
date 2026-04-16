@@ -65,15 +65,19 @@ async def run_proxy_check(bot: Bot) -> None:
         await db.update_proxy_health(aid, healthy)
 
         label = f"{p['ip']}:{p['port']}"
-        esp_info = f" | ESP: {p['esp']}" if p["esp"] else ""
+        usage_parts = [s for s in [
+            f"ESP: {p['esp']}" if p["esp"] else "",
+            f"Purpose: {p['purpose']}" if p["purpose"] else "",
+        ] if s]
+        usage_line = "\n" + " | ".join(usage_parts) if usage_parts else ""
 
         if not healthy and was_healthy is not False:
             await db.add_proxy_event(aid, "down", f"{label}")
             await notify(
                 bot,
                 f"🔴 <b>PROXY DOWN</b>\n"
-                f"Proxy: <code>{label}</code> [{p['type'].upper()}]{esp_info}\n"
-                f"Provider: {p['provider'] or '—'}\n"
+                f"Proxy: <code>{label}</code> [{p['type'].upper()}]\n"
+                f"Provider: {p['provider'] or '—'}{usage_line}\n"
                 f"Retries: {retries}/{retries} failed",
             )
         elif healthy and was_healthy is False:
@@ -82,7 +86,8 @@ async def run_proxy_check(bot: Bot) -> None:
             await notify(
                 bot,
                 f"🟢 <b>PROXY IS UP</b>\n"
-                f"Proxy: <code>{label}</code> [{p['type'].upper()}]{esp_info}",
+                f"Proxy: <code>{label}</code> [{p['type'].upper()}]\n"
+                f"Provider: {p['provider'] or '—'}{usage_line}",
             )
 
         if p["expire_days"] is not None and p["expire_days"] <= warn_days:
@@ -100,8 +105,8 @@ async def run_proxy_check(bot: Bot) -> None:
                 await notify(
                     bot,
                     f"⚠️ <b>PROXY EXPIRING SOON</b>\n"
-                    f"Proxy: <code>{label}</code> [{p['type'].upper()}]{esp_info}\n"
-                    f"Provider: {p['provider'] or '—'}\n"
+                    f"Proxy: <code>{label}</code> [{p['type'].upper()}]\n"
+                    f"Provider: {p['provider'] or '—'}{usage_line}\n"
                     f"Expires: {p['expire']} ({p['expire_days']}d left)\n"
                     f"Auto-renew: {renew}",
                 )
