@@ -9,10 +9,6 @@ TELEGRAM_TOKEN: str = os.environ["TELEGRAM_TOKEN"]
 TELEGRAM_CHAT_ID: int = int(os.environ["TELEGRAM_CHAT_ID"])
 
 AIRTABLE_API_KEY: str = os.environ["AIRTABLE_API_KEY"]
-AIRTABLE_BASE_ID: str = os.environ["AIRTABLE_BASE_ID"]
-AIRTABLE_TABLE_ID: str = os.environ["AIRTABLE_TABLE_ID"]
-AIRTABLE_VIEW_NAME: str = os.environ.get("AIRTABLE_VIEW_NAME", "sys_ch_domains")
-AIRTABLE_FIELD_NAME: str = os.environ.get("AIRTABLE_FIELD_NAME", "agency_domain_for_adspect")
 
 
 def _ssl_ctx() -> _ssl.SSLContext:
@@ -32,7 +28,6 @@ DB_CONFIG: dict = dict(
 )
 
 CHECK_INTERVAL: int = int(os.environ.get("CHECK_INTERVAL_SECONDS", "60"))
-CHANGE_INTERVAL: int = int(os.environ.get("CHANGE_INTERVAL_SECONDS", "3600"))
 COOLDOWN_CHECKS: int = int(os.environ.get("COOLDOWN_CHECKS", "5"))
 CHECK_TIMEOUT: int = int(os.environ.get("CHECK_TIMEOUT_SECONDS", "10"))
 CHECK_RETRIES: int = int(os.environ.get("CHECK_RETRIES", "3"))

@@ -8,7 +8,7 @@ from telegram.ext import CommandHandler, ContextTypes, filters
 
 import config
 import db
-from services import fmt_duration, rotate_domain, reschedule_rotation
+from services import fmt_duration
 from proxy_service import format_proxy_status, reschedule_proxy_check, run_proxy_check
 
 log = logging.getLogger(__name__)
@@ -53,9 +53,7 @@ async def cmd_start(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
         "<b>Domains:</b>\n"
         "/set_domains — set domain list\n"
         "/add_domains — add domains\n"
-        "/list_domains — current domain list\n"
-        "/change_domain_now — rotate domain now\n"
-        "/set_change_interval — set rotation interval\n\n"
+        "/list_domains — current domain list\n\n"
         "<b>Proxies:</b>\n"
         "/proxy_list — proxy status\n"
         "/proxy_check_now — check all proxies now\n"
@@ -107,11 +105,8 @@ async def cmd_list_domains(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> N
         return
 
     cooldown = int(await db.get_config("cooldown_checks", str(config.COOLDOWN_CHECKS)))
-    change_sec = int(await db.get_config("change_interval", str(config.CHANGE_INTERVAL)))
 
-    lines: list[str] = [
-        f"📋 <b>Domains</b> (rotation every {fmt_duration(change_sec)}):\n",
-    ]
+    lines: list[str] = ["📋 <b>Domains</b>:\n"]
 
     for i, d in enumerate(domains, 1):
         if d["is_current"]:
@@ -140,36 +135,6 @@ async def cmd_list_domains(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> N
         )
 
     await update.message.reply_text("\n".join(lines), parse_mode="HTML")
-
-
-async def cmd_change_domain_now(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    ok = await rotate_domain(ctx.bot, reason="manual rotation")
-    if not ok:
-        await update.message.reply_text("❌ No available domains for rotation.")
-
-
-async def cmd_set_change_interval(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-    raw = " ".join(ctx.args) if ctx.args else ""
-    if not raw:
-        current = await db.get_config("change_interval", str(config.CHANGE_INTERVAL))
-        await update.message.reply_text(
-            f"Current interval: {fmt_duration(int(current))}\n"
-            f"Usage: /set_change_interval 1h",
-        )
-        return
-
-    seconds = parse_interval(raw)
-    if not seconds or seconds < 60:
-        await update.message.reply_text(
-            "❌ Invalid format. Examples: 1h, 30m, 2h, 30 min",
-        )
-        return
-
-    await db.set_config("change_interval", str(seconds))
-    await reschedule_rotation(ctx.application, seconds)
-    await update.message.reply_text(
-        f"✅ Rotation interval: {fmt_duration(seconds)}",
-    )
 
 
 # ── Proxy commands ────────────────────────────────────────────────────────────
@@ -222,8 +187,6 @@ def setup_handlers(app) -> None:
         ("set_domains", cmd_set_domains),
         ("add_domains", cmd_add_domains),
         ("list_domains", cmd_list_domains),
-        ("change_domain_now", cmd_change_domain_now),
-        ("set_change_interval", cmd_set_change_interval),
         ("proxy_list", cmd_proxy_list),
         ("proxy_check_now", cmd_proxy_check_now),
         ("proxy_set_interval", cmd_proxy_set_interval),

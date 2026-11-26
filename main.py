@@ -8,7 +8,7 @@ from telegram.ext import Application
 import config
 import db
 from bot import setup_handlers
-from services import fmt_duration, health_check_job, notify, rotation_job
+from services import fmt_duration, health_check_job, notify
 from proxy_service import proxy_check_job
 
 logging.basicConfig(
@@ -23,16 +23,12 @@ async def post_init(app: Application) -> None:
     await db.init(config.DB_CONFIG)
 
     check_interval = int(await db.get_config("check_interval", str(config.CHECK_INTERVAL)))
-    change_interval = int(await db.get_config("change_interval", str(config.CHANGE_INTERVAL)))
 
     if not await db.get_config("cooldown_checks"):
         await db.set_config("cooldown_checks", str(config.COOLDOWN_CHECKS))
 
     app.job_queue.run_repeating(
         health_check_job, interval=check_interval, first=10, name="health_check",
-    )
-    app.job_queue.run_repeating(
-        rotation_job, interval=change_interval, first=change_interval, name="rotation",
     )
 
     proxy_interval = int(await db.get_config(
@@ -46,8 +42,6 @@ async def post_init(app: Application) -> None:
         BotCommand("set_domains", "Set domain list"),
         BotCommand("add_domains", "Add domains"),
         BotCommand("list_domains", "Current domain list"),
-        BotCommand("change_domain_now", "Rotate domain now"),
-        BotCommand("set_change_interval", "Set rotation interval"),
         BotCommand("proxy_list", "Proxy status"),
         BotCommand("proxy_check_now", "Check all proxies now"),
         BotCommand("proxy_set_interval", "Set proxy check interval"),
@@ -57,13 +51,12 @@ async def post_init(app: Application) -> None:
         app.bot,
         f"🛡 <b>Domain Watchguard started</b>\n"
         f"Domain check: {fmt_duration(check_interval)}\n"
-        f"Rotation: {fmt_duration(change_interval)}\n"
         f"Proxy check: {fmt_duration(proxy_interval)}",
     )
 
     log.info(
-        "Started — domain check %ds, rotate %ds, proxy check %ds",
-        check_interval, change_interval, proxy_interval,
+        "Started — domain check %ds, proxy check %ds",
+        check_interval, proxy_interval,
     )
 
 
